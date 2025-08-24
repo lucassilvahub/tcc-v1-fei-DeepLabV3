@@ -23,12 +23,12 @@ Acesse o dashboard completo do projeto: **[https://lucassilvahub.github.io/tcc-f
 
 O sistema identifica e classifica 6 categorias principais:
 
-- 🌳 **Mata Nativa** - Vegetação original preservada
-- 🏘️ **Ocupação Urbana** - Áreas construídas e infraestrutura
-- 🌍 **Solo Exposto** - Terrenos descobertos
-- 💧 **Corpos d'Água** - Rios, lagos e reservatórios
-- 🌾 **Agricultura** - Cultivos e pastagens
-- 🌱 **Regeneração** - Vegetação em processo de recuperação
+- **Mata Nativa** - Vegetação original preservada
+- **Ocupação Urbana** - Áreas construídas e infraestrutura
+- **Solo Exposto** - Terrenos descobertos
+- **Corpos d'Água** - Rios, lagos e reservatórios
+- **Agricultura** - Cultivos e pastagens
+- **Regeneração** - Vegetação em processo de recuperação
 
 ## 📊 Resultados Preliminares
 
