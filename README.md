@@ -1,4 +1,4 @@
-# 🌳 TCC - Segmentação Semântica da Mata Atlântica
+# TCC - Segmentação Semântica da Mata Atlântica
 
 > **Processamento de Imagens RGB para Mapeamento de Cobertura e Uso do Solo na Mata Atlântica**
 
@@ -11,11 +11,11 @@
 
 Este trabalho de conclusão de curso (TCC) da **FEI** tem como objetivo desenvolver um sistema de segmentação semântica para análise de cobertura e uso do solo na Mata Atlântica. Utilizando técnicas avançadas de **Deep Learning** e **Visão Computacional**, o projeto processa imagens RGB cobrindo aproximadamente **60.000 hectares** para gerar mapas temáticos precisos.
 
-### 🎯 Objetivo Principal
+### Objetivo Principal
 
 Realizar a transformação de imagens RGB em mapas temáticos de cobertura e uso do solo na Mata Atlântica por meio de técnicas de segmentação semântica utilizando redes neurais convolucionais (CNNs).
 
-## 🌐 Dashboard Online
+## Dashboard Online
 
 Acesse o dashboard completo do projeto: **[https://lucassilvahub.github.io/tcc-fei/](https://lucassilvahub.github.io/tcc-fei/)**
 
@@ -32,10 +32,10 @@ O sistema identifica e classifica 6 categorias principais:
 
 ## 📊 Resultados Preliminares
 
-- ✅ **Acurácia média**: 83%
-- 🎯 **Área processada**: ~60.000 hectares
-- 📍 **Local**: Serra de Petrópolis, RJ
-- 🔢 **Classes identificadas**: 6 categorias
+- **Acurácia média**: 83%
+- **Área processada**: ~60.000 hectares
+- **Local**: Serra de Petrópolis, RJ
+- **Classes identificadas**: 6 categorias
 
 ## 🤝 Contribuições
 
