@@ -59,6 +59,13 @@ Acesse o dashboard interativo do projeto:
 
 ---
 
+## 📚 Referências  
+
+- Xiao, Aoran, et al. *"Foundation models for remote sensing and earth observation: A survey."* **arXiv:2410.16602 (2024).**  
+  Disponível em: [arXiv](https://arxiv.org/abs/2410.16602)  
+
+---
+
 ## 🤝 Contribuições  
 
 Este é um projeto **acadêmico em desenvolvimento**.  
