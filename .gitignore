@@ -1,2 +1,5 @@
-./labels
-./images
+# Ignorar a pasta de imagens
+images/
+
+# Ignorar a pasta de labels
+labels/
