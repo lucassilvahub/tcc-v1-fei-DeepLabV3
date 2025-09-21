@@ -1,65 +1,0 @@
-/prj/posgrad/pasc/ICMBIO/code/icmbio/trainer.py:72: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
-  checkpoint = torch.load(path)
-/prj/posgrad/pasc/miniconda3/lib/python3.11/site-packages/torch/optim/lr_scheduler.py:224: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
-  warnings.warn(
-[H[2J[3Jtensor([1.1472, 0.3832, 2.0468, 0.4436, 1.4859, 2.4287, 5.2043, 2.0031])
-=========================================================================================================
-Layer (type:depth-idx)                                  Output Shape              Param #
-=========================================================================================================
-Unet                                                    [8, 8, 256, 256]          --
-├─EfficientNetEncoder: 1-1                              [8, 3, 256, 256]          412,160
-│    └─Conv2dStaticSamePadding: 2-1                     [8, 32, 128, 128]         864
-│    │    └─ZeroPad2d: 3-1                              [8, 3, 257, 257]          --
-│    └─BatchNorm2d: 2-2                                 [8, 32, 128, 128]         64
-│    └─MemoryEfficientSwish: 2-3                        [8, 32, 128, 128]         --
-│    └─ModuleList: 2-4                                  --                        --
-│    │    └─MBConvBlock: 3-2                            [8, 16, 128, 128]         1,448
-│    │    └─MBConvBlock: 3-3                            [8, 24, 64, 64]           6,004
-│    │    └─MBConvBlock: 3-4                            [8, 24, 64, 64]           10,710
-│    │    └─MBConvBlock: 3-5                            [8, 40, 32, 32]           15,350
-│    │    └─MBConvBlock: 3-6                            [8, 40, 32, 32]           31,290
-│    │    └─MBConvBlock: 3-7                            [8, 80, 16, 16]           37,130
-│    │    └─MBConvBlock: 3-8                            [8, 80, 16, 16]           102,900
-│    │    └─MBConvBlock: 3-9                            [8, 80, 16, 16]           102,900
-│    │    └─MBConvBlock: 3-10                           [8, 112, 16, 16]          126,004
-│    │    └─MBConvBlock: 3-11                           [8, 112, 16, 16]          208,572
-│    │    └─MBConvBlock: 3-12                           [8, 112, 16, 16]          208,572
-│    │    └─MBConvBlock: 3-13                           [8, 192, 8, 8]            262,492
-│    │    └─MBConvBlock: 3-14                           [8, 192, 8, 8]            587,952
-│    │    └─MBConvBlock: 3-15                           [8, 192, 8, 8]            587,952
-│    │    └─MBConvBlock: 3-16                           [8, 192, 8, 8]            587,952
-│    │    └─MBConvBlock: 3-17                           [8, 320, 8, 8]            717,232
-├─UnetDecoder: 1-2                                      [8, 16, 256, 256]         --
-│    └─Identity: 2-5                                    [8, 320, 8, 8]            --
-│    └─ModuleList: 2-6                                  --                        --
-│    │    └─DecoderBlock: 3-18                          [8, 256, 16, 16]          1,586,176
-│    │    └─DecoderBlock: 3-19                          [8, 128, 32, 32]          488,960
-│    │    └─DecoderBlock: 3-20                          [8, 64, 64, 64]           124,672
-│    │    └─DecoderBlock: 3-21                          [8, 32, 128, 128]         36,992
-│    │    └─DecoderBlock: 3-22                          [8, 16, 256, 256]         6,976
-├─SegmentationHead: 1-3                                 [8, 8, 256, 256]          --
-│    └─Conv2d: 2-7                                      [8, 8, 256, 256]          1,160
-│    └─Identity: 2-8                                    [8, 8, 256, 256]          --
-│    └─Activation: 2-9                                  [8, 8, 256, 256]          --
-│    │    └─Identity: 3-23                              [8, 8, 256, 256]          --
-=========================================================================================================
-Total params: 6,252,484
-Trainable params: 6,252,484
-Non-trainable params: 0
-Total mult-adds (Units.GIGABYTES): 20.39
-=========================================================================================================
-Input size (MB): 6.29
-Forward/backward pass size (MB): 1111.62
-Params size (MB): 9.14
-Estimated Total Size (MB): 1127.05
-=========================================================================================================
-Tempo gasto: 0.00 horas
-  0%|          | 0/42 [00:00<?, ?it/s]
-  0%|          | 0/39 [00:00<?, ?it/s][A
-  3%|▎         | 1/39 [00:00<00:11,  3.26it/s][A
-  5%|▌         | 2/39 [00:00<00:11,  3.31it/s][A
-  8%|▊         | 3/39 [00:00<00:10,  3.34it/s][A
- 10%|█         | 4/39 [00:11<02:35,  4.43s/it][A
- 13%|█▎        | 5/39 [00:11<01:39,  2.94s/it][A
- 15%|█▌        | 6/39 [00:12<01:07,  2.04s/it][AXIO:  fatal IO error 0 (Success) on X server "localhost:10.0"
-      after 940 requests (940 known processed) with 11 events remaining.

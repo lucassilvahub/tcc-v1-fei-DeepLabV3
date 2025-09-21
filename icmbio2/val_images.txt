@@ -1,7 +1,0 @@
-raster18.tif
-raster27.tif
-raster28.tif
-raster24.tif
-raster04.tif
-raster16.tif
-raster05.tif
