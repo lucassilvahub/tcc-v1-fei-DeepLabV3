@@ -13,11 +13,12 @@ import torch.nn as nn
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Usando dispositivo: {device}")
 
-input_dir = '../../dataset_35/images'
-dir_path = '20250720K4_b75_drop_Plato_flipRotColor_unet_focal_loss_RADAM'
-model_path = f'output_35/{dir_path}/best_epoch.pth.tar'
-output_dir = f'output_35/{dir_path}/inference_val'
-selected_files_path = 'folds/fold1_images.txt'  # caminho para o .txt
+input_dir = "../images"
+dir_path = "20250720K4_b75_drop_Plato_flipRotColor_unet_focal_loss_RADAM"
+model_path = f"output_35/{dir_path}/best_epoch.pth.tar"
+output_dir = f"output_35/{dir_path}/inference_val"
+selected_files_path = "../folds/fold1_images.txt"
+
 
 # === MODELO COM DROPOUT ===
 class UNetWithDropout(smp.Unet):
@@ -29,23 +30,27 @@ class UNetWithDropout(smp.Unet):
     def forward(self, x):
         return super().forward(x)
 
+
 model = UNetWithDropout(
-    encoder_name='efficientnet-b7',
+    encoder_name="efficientnet-b7",
     in_channels=3,
     classes=8,
     activation=None,
     decoder_use_norm=True,
-    #decoder_attention_type='scse',
-    decoder_interpolation="nearest"
+    # decoder_attention_type='scse',
+    decoder_interpolation="nearest",
 )
 
 with torch.serialization.safe_globals([torch._utils._rebuild_tensor_v2]):
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
 
-checkpoint_state = checkpoint.get('model_state_dict') or checkpoint.get('state_dict') or checkpoint
+checkpoint_state = (
+    checkpoint.get("model_state_dict") or checkpoint.get("state_dict") or checkpoint
+)
 model.load_state_dict(checkpoint_state, strict=False)
 model = model.to(device)
 model.eval()
+
 
 # === FUNCOES DE INFERENCIA ===
 def sliding_window(img, window_size=(224, 224), stride=224):
@@ -61,6 +66,7 @@ def sliding_window(img, window_size=(224, 224), stride=224):
         for y in ys:
             yield x, y, window_size[0], window_size[1]
 
+
 def infer_image(image, patch_size=(224, 224), stride=224, batch_size=224):
     H, W, C = image.shape
     num_classes = 8
@@ -70,8 +76,10 @@ def infer_image(image, patch_size=(224, 224), stride=224, batch_size=224):
     patches = []
     coords = []
     for x, y, h, w in sliding_window(image, patch_size, stride):
-        patch = image[x:x+h, y:y+w, :]
-        patch_tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).permute(2, 0, 1)
+        patch = image[x : x + h, y : y + w, :]
+        patch_tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).permute(
+            2, 0, 1
+        )
         patches.append(patch_tensor)
         coords.append((x, y, h, w))
 
@@ -80,8 +88,8 @@ def infer_image(image, patch_size=(224, 224), stride=224, batch_size=224):
             with torch.no_grad():
                 probs = torch.softmax(model(batch), dim=1).cpu().numpy()
             for i, (x, y, h, w) in enumerate(coords):
-                prob_acc[:, x:x+h, y:y+w] += probs[i]
-                count_acc[x:x+h, y:y+w] += 1
+                prob_acc[:, x : x + h, y : y + w] += probs[i]
+                count_acc[x : x + h, y : y + w] += 1
             patches, coords = [], []
 
     if patches:
@@ -89,11 +97,12 @@ def infer_image(image, patch_size=(224, 224), stride=224, batch_size=224):
         with torch.no_grad():
             probs = torch.softmax(model(batch), dim=1).cpu().numpy()
         for i, (x, y, h, w) in enumerate(coords):
-            prob_acc[:, x:x+h, y:y+w] += probs[i]
-            count_acc[x:x+h, y:y+w] += 1
+            prob_acc[:, x : x + h, y : y + w] += probs[i]
+            count_acc[x : x + h, y : y + w] += 1
 
     avg_probs = prob_acc / np.maximum(count_acc, 1e-8)
     return np.argmax(avg_probs, axis=0).astype(np.uint8)
+
 
 def convert_to_rgb(pred, palette):
     H, W = pred.shape
@@ -101,6 +110,7 @@ def convert_to_rgb(pred, palette):
     for class_idx, color in palette.items():
         rgb[pred == class_idx] = color
     return rgb
+
 
 palette = {
     0: (255, 0, 0),
@@ -110,11 +120,11 @@ palette = {
     4: (255, 255, 0),
     5: (128, 128, 128),
     6: (139, 69, 19),
-    7: (84, 117, 168)
+    7: (84, 117, 168),
 }
 
 # === CARREGAR LISTA DE IMAGENS ===
-with open(selected_files_path, 'r') as f:
+with open(selected_files_path, "r") as f:
     selected_filenames = [line.strip() for line in f if line.strip()]
 
 print("Imagens selecionadas:")
@@ -130,7 +140,7 @@ for filename in selected_filenames:
 
     image = imread(img_path)
     if image.ndim == 2:
-        image = np.stack([image]*3, axis=-1)
+        image = np.stack([image] * 3, axis=-1)
     elif image.shape[-1] != 3:
         image = image[..., :3]
 
