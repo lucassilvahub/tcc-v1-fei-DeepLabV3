@@ -1,107 +1,117 @@
-import os
 import torch
 from torch.utils.data import DataLoader
-import numpy as np
 from tqdm import tqdm
 from pathlib import Path
+from torchvision import models
 
-from dataset import PetropolisDataset
-from model import LULCSegNet
+from dataset import PetropolisPatchDataset
 from losses import FocalLoss
 from utils import load_fold_files, compute_iou, print_ious
 
-# Diretórios globais
-ROOT = Path(__file__).resolve().parent.parent   # sobe da pasta src para raiz
+ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = ROOT / "models"
 OUTPUTS_DIR = ROOT / "outputs"
 MODELS_DIR.mkdir(exist_ok=True)
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
 
+def get_model(num_classes):
+    model = models.segmentation.deeplabv3_resnet50(weights="DEFAULT")
+    model.classifier[4] = torch.nn.Conv2d(256, num_classes, kernel_size=1)
+    return model
+
+
 def train_model(config):
     log_path = OUTPUTS_DIR / "training_log.txt"
-
-    # sobrescreve log no início
     with open(log_path, "w") as f:
-        f.write("📓 Log de treinamento\n")
+        f.write("Log de treinamento\n")
 
     best_overall_miou = 0.0
 
     for fold_num in range(1, config.N_FOLDS + 1):
-        print(f"\n🔹 Treinando Fold {fold_num}/{config.N_FOLDS}")
+        print(f"\nTreinando Fold {fold_num}/{config.N_FOLDS}")
 
-        train_images, train_labels = load_fold_files(config.DATA_PATH, fold_num)
-        val_images, val_labels = load_fold_files(
+        train_imgs, train_lbls = load_fold_files(config.DATA_PATH, fold_num)
+        val_imgs, val_lbls = load_fold_files(
             config.DATA_PATH, fold_num + 1 if fold_num < config.N_FOLDS else 1
         )
 
-        train_dataset = PetropolisDataset(
-            train_images, train_labels, config, mode="train", patch_size=config.IMAGE_SIZE
-        )
-        val_dataset = PetropolisDataset(
-            val_images, val_labels, config, mode="val", patch_size=config.IMAGE_SIZE
-        )
+        train_set = PetropolisPatchDataset(train_imgs, train_lbls, config, mode="train")
+        val_set = PetropolisPatchDataset(val_imgs, val_lbls, config, mode="val")
 
-        train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False)
+        train_loader = DataLoader(train_set, batch_size=config.BATCH_SIZE, shuffle=True)
+        val_loader = DataLoader(val_set, batch_size=config.BATCH_SIZE, shuffle=False)
 
-        model = LULCSegNet(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+        model = get_model(config.NUM_CLASSES).to(config.DEVICE)
         criterion = FocalLoss(alpha=0.25, gamma=2.0)
         optimizer = torch.optim.AdamW(model.parameters(), lr=config.LEARNING_RATE)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.EPOCHS)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="max", factor=0.5, patience=5
+        )
 
-        best_fold_miou = 0.0
+        scaler = torch.cuda.amp.GradScaler()
+        best_fold_miou, patience_counter, patience = 0.0, 0, 15
 
-        for epoch in range(config.EPOCHS):
-            # ================= Treino =================
+        for epoch in range(1, config.EPOCHS + 1):
+            # ===== Treino =====
             model.train()
             train_loss = 0
-            for images, masks in tqdm(train_loader, desc=f"Época {epoch+1}/{config.EPOCHS}"):
-                images, masks = images.to(config.DEVICE), masks.to(config.DEVICE)
+            for imgs, masks in tqdm(train_loader, desc=f"Época {epoch}/{config.EPOCHS}"):
+                imgs, masks = imgs.to(config.DEVICE), masks.to(config.DEVICE)
                 optimizer.zero_grad()
-                outputs = model(images)
-                loss = criterion(outputs, masks)
-                loss.backward()
-                optimizer.step()
+                with torch.cuda.amp.autocast():
+                    outputs = model(imgs)["out"]
+                    loss = criterion(outputs, masks)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 train_loss += loss.item()
 
-            # ================= Validação =================
+            # ===== Validação =====
             model.eval()
-            all_preds, all_targets = [], []
-            val_loss = 0
+            preds_all, targets_all, val_loss = [], [], 0
             with torch.no_grad():
-                for images, masks in val_loader:
-                    images, masks = images.to(config.DEVICE), masks.to(config.DEVICE)
-                    outputs = model(images)
-                    loss = criterion(outputs, masks)
+                for imgs, masks in val_loader:
+                    imgs, masks = imgs.to(config.DEVICE), masks.to(config.DEVICE)
+                    with torch.cuda.amp.autocast():
+                        outputs = model(imgs)["out"]
+                        loss = criterion(outputs, masks)
                     val_loss += loss.item()
-                    preds = torch.argmax(outputs, dim=1)
-                    all_preds.append(preds.cpu())
-                    all_targets.append(masks.cpu())
+                    preds_all.append(torch.argmax(outputs, dim=1).cpu())
+                    targets_all.append(masks.cpu())
 
-            all_preds = torch.cat(all_preds, dim=0)
-            all_targets = torch.cat(all_targets, dim=0)
+            preds_all = torch.cat(preds_all, dim=0)
+            targets_all = torch.cat(targets_all, dim=0)
+            ious, miou = compute_iou(preds_all, targets_all, config.NUM_CLASSES)
 
-            ious, miou = compute_iou(all_preds, all_targets, config.NUM_CLASSES)
             print(
-                f"\nÉpoca {epoch+1}: Train Loss={train_loss/len(train_loader):.4f}, "
-                f"Val Loss={val_loss/len(val_loader):.4f}, mIoU={miou*100:.2f}%"
+                f"\nÉpoca {epoch}: Train={train_loss/len(train_loader):.4f}, "
+                f"Val={val_loss/len(val_loader):.4f}, mIoU={miou*100:.2f}%"
             )
             print_ious(ious, config.CLASS_NAMES)
 
+            # Early stopping + checkpoint
             if miou > best_fold_miou:
                 best_fold_miou = miou
-                torch.save(model.state_dict(), MODELS_DIR / f"lulc_segnet_best_fold{fold_num}.pth")
-                print(f"✅ Novo melhor modelo do fold {fold_num} salvo! mIoU={best_fold_miou*100:.2f}%")
+                patience_counter = 0
+                torch.save(model.state_dict(), MODELS_DIR / f"deeplabv3_best_fold{fold_num}.pth")
+                print(f"Novo melhor modelo fold {fold_num} salvo! mIoU={miou*100:.2f}%")
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    print("Early stopping ativado")
+                    break
 
-            scheduler.step()
+            # Atualiza scheduler e verifica se LR mudou
+            old_lr = optimizer.param_groups[0]["lr"]
+            scheduler.step(miou)
+            new_lr = optimizer.param_groups[0]["lr"]
+            if new_lr < old_lr:
+                print(f"Taxa de aprendizado reduzida: {old_lr:.6f} -> {new_lr:.6f}")
 
-        # Salvar métricas no log
         with open(log_path, "a") as f:
             f.write(f"Melhor mIoU fold {fold_num}: {best_fold_miou*100:.2f}\n")
 
-        if best_fold_miou > best_overall_miou:
-            best_overall_miou = best_fold_miou
+        best_overall_miou = max(best_overall_miou, best_fold_miou)
 
-    print(f"\n🎯 Melhor mIoU geral: {best_overall_miou*100:.2f}%")
-    return model
+    print(f"\nMelhor mIoU geral: {best_overall_miou*100:.2f}%")

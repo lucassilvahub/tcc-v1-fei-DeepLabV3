@@ -1,9 +1,7 @@
 import torch
 
+
 class Config:
-    """
-    Configuração do projeto.
-    """
     DATA_PATH = "../data"
     IMAGE_SIZE = 256
     PATCH_SIZE = 256
@@ -30,7 +28,7 @@ class Config:
         6: (173, 255, 47),
         7: (0, 0, 0),
     }
-    EPOCHS = 50
+    EPOCHS = 150
     LEARNING_RATE = 1e-4
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     N_FOLDS = 5
