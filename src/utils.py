@@ -1,5 +1,21 @@
-from pathlib import Path
+import torch
 import numpy as np
+from pathlib import Path
+
+def compute_iou(pred, target, num_classes):
+    ious = []
+    pred = pred.view(-1)
+    target = target.view(-1)
+    for cls in range(num_classes):
+        pred_inds = pred == cls
+        target_inds = target == cls
+        intersection = (pred_inds & target_inds).sum().float()
+        union = (pred_inds | target_inds).sum().float()
+        if union == 0:
+            ious.append(float("nan"))
+        else:
+            ious.append((intersection / union).item())
+    return ious
 
 
 def load_fold_files(data_path, fold_num):
@@ -8,7 +24,6 @@ def load_fold_files(data_path, fold_num):
     Retorna listas de caminhos de imagens e máscaras.
     """
     fold_path = Path(data_path) / "folds"
-
     images_file = fold_path / f"fold{fold_num}_images.txt"
     labels_file = fold_path / f"fold{fold_num}_labels.txt"
 
@@ -22,23 +37,3 @@ def load_fold_files(data_path, fold_num):
     label_paths = [base_path / "labels" / name for name in label_names]
 
     return image_paths, label_paths
-
-
-def compute_iou(pred, target, num_classes):
-    """
-    Calcula Intersection-over-Union (IoU) por classe.
-    """
-    ious = []
-    pred = pred.view(-1)
-    target = target.view(-1)
-
-    for cls in range(num_classes):
-        pred_inds = pred == cls
-        target_inds = target == cls
-        intersection = (pred_inds & target_inds).sum().float()
-        union = (pred_inds | target_inds).sum().float()
-        if union == 0:
-            ious.append(float("nan"))
-        else:
-            ious.append((intersection / union).item())
-    return ious
