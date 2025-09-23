@@ -1,94 +1,107 @@
+import os
 import torch
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 import numpy as np
+from tqdm import tqdm
+from pathlib import Path
 
-from dataset import PetropolisPatchDataset
+from dataset import PetropolisDataset
 from model import LULCSegNet
 from losses import FocalLoss
-from utils import compute_iou, load_fold_files
+from utils import load_fold_files, compute_iou, print_ious
 
-def train_model(config, fold_num):
-    """
-    Treina o modelo usando os paths de um fold específico (1 a 5).
-    """
-    print(f"\n🌿 LULC-SegNet - Treinamento Fold {fold_num}")
-    print(f"Device: {config.DEVICE}")
+# Diretórios globais
+ROOT = Path(__file__).resolve().parent.parent   # sobe da pasta src para raiz
+MODELS_DIR = ROOT / "models"
+OUTPUTS_DIR = ROOT / "outputs"
+MODELS_DIR.mkdir(exist_ok=True)
+OUTPUTS_DIR.mkdir(exist_ok=True)
 
-    # Carrega imagens e labels do fold
-    train_images, train_labels = load_fold_files(config.DATA_PATH, fold_num)
-    val_images, val_labels = load_fold_files(config.DATA_PATH, fold_num+1 if fold_num < 5 else 1)
 
-    print(f"Treino imagens: {len(train_images)}, Val imagens: {len(val_images)}")
+def train_model(config):
+    log_path = OUTPUTS_DIR / "training_log.txt"
 
-    # Dataset e DataLoader
-    train_dataset = PetropolisPatchDataset(train_images, train_labels, config, patch_size=config.PATCH_SIZE, stride=config.STRIDE, mode="train")
-    val_dataset = PetropolisPatchDataset(val_images, val_labels, config, patch_size=config.PATCH_SIZE, stride=config.STRIDE, mode="val")
-    train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False)
+    # sobrescreve log no início
+    with open(log_path, "w") as f:
+        f.write("📓 Log de treinamento\n")
 
-    # Modelo
-    model = LULCSegNet(config.NUM_CLASSES, pretrained=True).to(config.DEVICE)
+    best_overall_miou = 0.0
 
-    # Loss, otimizador e scheduler
-    criterion = FocalLoss(alpha=None)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.LEARNING_RATE, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.EPOCHS)
+    for fold_num in range(1, config.N_FOLDS + 1):
+        print(f"\n🔹 Treinando Fold {fold_num}/{config.N_FOLDS}")
 
-    best_miou = 0.0
+        train_images, train_labels = load_fold_files(config.DATA_PATH, fold_num)
+        val_images, val_labels = load_fold_files(
+            config.DATA_PATH, fold_num + 1 if fold_num < config.N_FOLDS else 1
+        )
 
-    for epoch in range(config.EPOCHS):
-        # =======================
-        # Treinamento
-        # =======================
-        model.train()
-        train_loss = 0
-        pbar = tqdm(train_loader, desc=f"Época {epoch+1}/{config.EPOCHS}")
-        for images, masks in pbar:
-            images, masks = images.to(config.DEVICE), masks.to(config.DEVICE)
+        train_dataset = PetropolisDataset(
+            train_images, train_labels, config, mode="train", patch_size=config.IMAGE_SIZE
+        )
+        val_dataset = PetropolisDataset(
+            val_images, val_labels, config, mode="val", patch_size=config.IMAGE_SIZE
+        )
 
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, masks)
-            loss.backward()
-            optimizer.step()
+        train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
-            train_loss += loss.item()
-            pbar.set_postfix({"Loss": f"{loss.item():.4f}"})
+        model = LULCSegNet(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+        criterion = FocalLoss(alpha=0.25, gamma=2.0)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config.LEARNING_RATE)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.EPOCHS)
 
-        # =======================
-        # Validação
-        # =======================
-        model.eval()
-        val_loss = 0
-        all_preds, all_targets = [], []
-        with torch.no_grad():
-            for images, masks in val_loader:
+        best_fold_miou = 0.0
+
+        for epoch in range(config.EPOCHS):
+            # ================= Treino =================
+            model.train()
+            train_loss = 0
+            for images, masks in tqdm(train_loader, desc=f"Época {epoch+1}/{config.EPOCHS}"):
                 images, masks = images.to(config.DEVICE), masks.to(config.DEVICE)
+                optimizer.zero_grad()
                 outputs = model(images)
-                val_loss += criterion(outputs, masks).item()
-                preds = torch.argmax(outputs, dim=1)
-                all_preds.append(preds.cpu())
-                all_targets.append(masks.cpu())
+                loss = criterion(outputs, masks)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item()
 
-        all_preds = torch.cat(all_preds, dim=0)
-        all_targets = torch.cat(all_targets, dim=0)
-        class_ious = compute_iou(all_preds, all_targets, config.NUM_CLASSES)
-        valid_ious = [iou for iou in class_ious if not np.isnan(iou)]
-        miou = np.mean(valid_ious) if valid_ious else 0.0
+            # ================= Validação =================
+            model.eval()
+            all_preds, all_targets = [], []
+            val_loss = 0
+            with torch.no_grad():
+                for images, masks in val_loader:
+                    images, masks = images.to(config.DEVICE), masks.to(config.DEVICE)
+                    outputs = model(images)
+                    loss = criterion(outputs, masks)
+                    val_loss += loss.item()
+                    preds = torch.argmax(outputs, dim=1)
+                    all_preds.append(preds.cpu())
+                    all_targets.append(masks.cpu())
 
-        # Logging detalhado
-        print(f"\nEpoch {epoch+1}: Train Loss {train_loss/len(train_loader):.4f}, Val Loss {val_loss/len(val_loader):.4f}, mIoU {miou*100:.2f}%")
-        print("📊 IoU por classe:")
-        for idx, iou in enumerate(class_ious):
-            print(f"  {config.CLASS_NAMES[idx]:<15}: {iou*100 if not np.isnan(iou) else 0.0:6.2f}%")
+            all_preds = torch.cat(all_preds, dim=0)
+            all_targets = torch.cat(all_targets, dim=0)
 
-        scheduler.step()
+            ious, miou = compute_iou(all_preds, all_targets, config.NUM_CLASSES)
+            print(
+                f"\nÉpoca {epoch+1}: Train Loss={train_loss/len(train_loader):.4f}, "
+                f"Val Loss={val_loss/len(val_loader):.4f}, mIoU={miou*100:.2f}%"
+            )
+            print_ious(ious, config.CLASS_NAMES)
 
-        # Salva melhor modelo do fold
-        if miou > best_miou:
-            best_miou = miou
-            torch.save(model.state_dict(), f"../checkpoints/lulc_segnet_best_fold{fold_num}.pth")
-            print(f"✅ Novo melhor modelo salvo! mIoU: {best_miou*100:.2f}%")
+            if miou > best_fold_miou:
+                best_fold_miou = miou
+                torch.save(model.state_dict(), MODELS_DIR / f"lulc_segnet_best_fold{fold_num}.pth")
+                print(f"✅ Novo melhor modelo do fold {fold_num} salvo! mIoU={best_fold_miou*100:.2f}%")
 
-    print(f"\n🎯 Melhor mIoU Fold {fold_num}: {best_miou*100:.2f}%")
+            scheduler.step()
+
+        # Salvar métricas no log
+        with open(log_path, "a") as f:
+            f.write(f"Melhor mIoU fold {fold_num}: {best_fold_miou*100:.2f}\n")
+
+        if best_fold_miou > best_overall_miou:
+            best_overall_miou = best_fold_miou
+
+    print(f"\n🎯 Melhor mIoU geral: {best_overall_miou*100:.2f}%")
+    return model
