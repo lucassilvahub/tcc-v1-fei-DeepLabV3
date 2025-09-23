@@ -1,1 +1,28 @@
-images/
+# Ambiente virtual
+venv/
+.venv/
+
+# Dados grandes
+data/
+
+# Modelos salvos
+*.pth
+*.pt
+checkpoints/
+
+# Arquivos Python temporários
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Configs locais
+.env
