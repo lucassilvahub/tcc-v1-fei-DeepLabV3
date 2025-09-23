@@ -9,6 +9,8 @@ data/
 *.pth
 *.pt
 checkpoints/
+models/
+data/
 
 # Arquivos Python temporários
 __pycache__/
