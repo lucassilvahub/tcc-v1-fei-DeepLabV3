@@ -1,3 +1,4 @@
+# Adicione estas linhas LOGO APÓS os imports:
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -39,8 +40,25 @@ def train_model(config):
         train_set = PetropolisPatchDataset(train_imgs, train_lbls, config, mode="train")
         val_set = PetropolisPatchDataset(val_imgs, val_lbls, config, mode="val")
 
-        train_loader = DataLoader(train_set, batch_size=config.BATCH_SIZE, shuffle=True)
-        val_loader = DataLoader(val_set, batch_size=config.BATCH_SIZE, shuffle=False)
+        # ===== ADICIONE OS PARÂMETROS AQUI =====
+        train_loader = DataLoader(
+            train_set,
+            batch_size=config.BATCH_SIZE,
+            shuffle=True,
+            num_workers=8,  # <- NOVO
+            pin_memory=True,  # <- NOVO
+            prefetch_factor=3,  # <- NOVO
+            persistent_workers=True,  # <- NOVO
+        )
+        val_loader = DataLoader(
+            val_set,
+            batch_size=config.BATCH_SIZE,
+            shuffle=False,
+            num_workers=8,  # <- NOVO
+            pin_memory=True,  # <- NOVO
+            prefetch_factor=3,  # <- NOVO
+            persistent_workers=True,  # <- NOVO
+        )
 
         model = get_model(config.NUM_CLASSES).to(config.DEVICE)
         criterion = FocalLoss(alpha=0.25, gamma=2.0)
@@ -49,17 +67,19 @@ def train_model(config):
             optimizer, mode="max", factor=0.5, patience=5
         )
 
-        scaler = torch.cuda.amp.GradScaler()
+        scaler = torch.amp.GradScaler('cuda')
         best_fold_miou, patience_counter, patience = 0.0, 0, 15
 
         for epoch in range(1, config.EPOCHS + 1):
             # ===== Treino =====
             model.train()
             train_loss = 0
-            for imgs, masks in tqdm(train_loader, desc=f"Época {epoch}/{config.EPOCHS}"):
+            for imgs, masks in tqdm(
+                train_loader, desc=f"Época {epoch}/{config.EPOCHS}"
+            ):
                 imgs, masks = imgs.to(config.DEVICE), masks.to(config.DEVICE)
                 optimizer.zero_grad()
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast("cuda"):  # <- CORRIGIDO
                     outputs = model(imgs)["out"]
                     loss = criterion(outputs, masks)
                 scaler.scale(loss).backward()
@@ -73,7 +93,7 @@ def train_model(config):
             with torch.no_grad():
                 for imgs, masks in val_loader:
                     imgs, masks = imgs.to(config.DEVICE), masks.to(config.DEVICE)
-                    with torch.cuda.amp.autocast():
+                    with torch.amp.autocast("cuda"):  # <- CORRIGIDO
                         outputs = model(imgs)["out"]
                         loss = criterion(outputs, masks)
                     val_loss += loss.item()
@@ -94,7 +114,10 @@ def train_model(config):
             if miou > best_fold_miou:
                 best_fold_miou = miou
                 patience_counter = 0
-                torch.save(model.state_dict(), MODELS_DIR / f"deeplabv3_best_fold{fold_num}.pth")
+                torch.save(
+                    model.state_dict(),
+                    MODELS_DIR / f"deeplabv3_best_fold{fold_num}.pth",
+                )
                 print(f"Novo melhor modelo fold {fold_num} salvo! mIoU={miou*100:.2f}%")
             else:
                 patience_counter += 1
@@ -102,7 +125,6 @@ def train_model(config):
                     print("Early stopping ativado")
                     break
 
-            # Atualiza scheduler e verifica se LR mudou
             old_lr = optimizer.param_groups[0]["lr"]
             scheduler.step(miou)
             new_lr = optimizer.param_groups[0]["lr"]

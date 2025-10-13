@@ -2,11 +2,11 @@ import torch
 
 
 class Config:
-    DATA_PATH = "../data"
+    DATA_PATH = r"C:\Users\Lucas\Documents\College\TCC\tcc-v1-fei-DeepLabV3\data"
     IMAGE_SIZE = 256
     PATCH_SIZE = 256
     STRIDE = 128
-    BATCH_SIZE = 4
+    BATCH_SIZE = 32
     NUM_CLASSES = 8
     CLASS_NAMES = [
         "Mata Nativa",

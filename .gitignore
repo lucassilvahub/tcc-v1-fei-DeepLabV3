@@ -1,6 +1,8 @@
 # Ambiente virtual
 venv/
 .venv/
+v1/
+.v1/
 
 output/
 results/
@@ -13,7 +15,6 @@ data/
 *.pth
 *.pt
 checkpoints/
-models/
 data/
 
 # Arquivos Python temporários
