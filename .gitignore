@@ -2,6 +2,10 @@
 venv/
 .venv/
 
+output/
+results/
+dataset/
+
 # Dados grandes
 data/
 
