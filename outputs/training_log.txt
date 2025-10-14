@@ -1,1 +1,6 @@
 Log de treinamento
+Melhor mIoU fold 1: 56.67
+Melhor mIoU fold 2: 67.10
+Melhor mIoU fold 3: 67.03
+Melhor mIoU fold 4: 66.41
+Melhor mIoU fold 5: 50.69

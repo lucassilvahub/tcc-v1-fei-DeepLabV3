@@ -4,7 +4,7 @@ venv/
 v1/
 .v1/
 
-output/
+# output/
 results/
 dataset/
 
