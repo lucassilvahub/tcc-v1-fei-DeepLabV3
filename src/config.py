@@ -19,14 +19,14 @@ class Config:
         "Água",                # 7
     ]
     CLASS_COLORS = {
-        0: (0, 100, 0),          # Verde escuro (não Vermelho!)
-        1: (0, 255, 0),          # Verde
-        2: (128, 128, 128),      # Cinza (não Preto!)
-        3: (160, 82, 45),        # Marrom
-        4: (0, 0, 255),          # Azul
-        5: (255, 255, 0),        # Amarelo
-        6: (173, 255, 47),       # Verde claro
-        7: (0, 0, 0),            # Preto
+        0: (255, 0, 0),        # Vermelho (Urbano)
+        1: (38, 115, 0),       # Verde escuro (Vegetação Densa)
+        2: (0, 0, 0),          # Preto (Sombra)
+        3: (133, 199, 126),    # Verde claro (Vegetação Esparsa)
+        4: (255, 255, 0),      # Amarelo (Agricultura)
+        5: (128, 128, 128),    # Cinza (Rocha)
+        6: (139, 69, 19),      # Marrom (Solo Exposto)
+        7: (84, 117, 168),     # Azul (Água)
     }
     EPOCHS = 150
     LEARNING_RATE = 1e-4
